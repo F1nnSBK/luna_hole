@@ -32,7 +32,7 @@ class LunarPitDataset(Dataset):
         return tensor, label
     
 
-def get_dataloaders(data_dir="data/processed/dataset", batch_size=32, val_split=0.2):
+def get_dataloaders(data_dir="data/processed/dataset", batch_size=32, val_split=0.2, transform=None):
     base_path = Path(data_dir)
 
     pit_files = list((base_path / "pits").glob("*.npy"))
@@ -51,8 +51,8 @@ def get_dataloaders(data_dir="data/processed/dataset", batch_size=32, val_split=
 
     logger.info(f"Split: {len(train_files)} Train-Images, {len(val_files)} Val-Images")
 
-    train_dataset = LunarPitDataset(train_files, train_labels)
-    val_dataset = LunarPitDataset(val_files, val_labels)
+    train_dataset = LunarPitDataset(train_files, train_labels, transform=transform)
+    val_dataset = LunarPitDataset(val_files, val_labels, transform=transform)
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
