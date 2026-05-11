@@ -27,7 +27,7 @@ class DinoExtractor(nn.Module):
         lora_config = LoraConfig(
             r=L_RANK,
             lora_alpha=L_RANK,
-            target_modules=["qkv", "proj"],
+            target_modules=["qkv", "proj", "fc1", "fc2"],
             lora_dropout=0.1,
             bias="none"
         )

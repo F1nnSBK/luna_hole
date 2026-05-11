@@ -35,7 +35,8 @@ def main():
     EPOCHS = 20
     LR = 1e-4
     MARGIN = 1.0
-    MATRYOSHKA_DIMS = [384]
+    MATRYOSHKA_DIMS = [64, 128, 256, 384]
+    LOSS_WEIGHTS = [1.0, 1.0, 0.8, 0.5]
 
     mlflow.set_experiment("Lunar_Pit_LoRA_Training")
     with mlflow.start_run(run_name="Dataset_Initial_Check"):
@@ -45,6 +46,7 @@ def main():
             "learning_rate": LR,
             "margin": MARGIN,
             "matryoshka_dims": str(MATRYOSHKA_DIMS),
+            "matroyshka_weights": str(LOSS_WEIGHTS),
             "model": "dinov3_vits16_lvd"
         })
 
@@ -60,7 +62,7 @@ def main():
         weights = "models/meta/dinov3/dinov3_vits16_pretrain_lvd.pth"
         model = DinoExtractor(weights_path=weights, model_size='vits16').to(device)
         
-        criterion = MatryoshkaTripletLoss(nest_dims=MATRYOSHKA_DIMS, margin=MARGIN)
+        criterion = MatryoshkaTripletLoss(nest_dims=MATRYOSHKA_DIMS, margin=MARGIN, weights=LOSS_WEIGHTS)
         
         trainable_params = [p for p in model.parameters() if p.requires_grad]
         optimizer = AdamW(trainable_params, lr=LR, weight_decay=1e-2)
