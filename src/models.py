@@ -4,7 +4,7 @@ from peft import LoraConfig, get_peft_model
 from .utils import get_logger
 
 logger = get_logger(__name__)
-L_RANK = 8
+L_RANK = 32
 
 class DinoExtractor(nn.Module):
     def __init__(self, weights_path="models/meta/dinov3_vits16_pretrain_lvd.pth", model_name="vits16_lvd", model_size="vits16", freeze=True):
@@ -15,7 +15,7 @@ class DinoExtractor(nn.Module):
 
         try:
             self.backbone = torch.hub.load("facebookresearch/dinov3", f"dinov3_{model_size}", pretrained=False)
-            state_dict = torch.load(weights_path, map_location='cpu')
+            state_dict = torch.load(weights_path, map_location='cpu', weights_only=True)
             if 'model' in state_dict:
                 state_dict = state_dict['model']
                 
@@ -26,17 +26,20 @@ class DinoExtractor(nn.Module):
         
         lora_config = LoraConfig(
             r=L_RANK,
-            lora_alpha=L_RANK * 2,
-            target_modules=["qkv"],
+            lora_alpha=L_RANK,
+            target_modules=["qkv", "proj"],
             lora_dropout=0.1,
             bias="none"
         )
 
-        self.backbone = get_peft_model(self.backbone, lora_config)
-        self.backbone.print_trainable_parameters()
+        self.model = get_peft_model(self.backbone, lora_config)
+        self.model.print_trainable_parameters()
 
     def forward(self, x):
-        return self.backbone(x)
+        return self.model(x)
+
+    def save_adapter(self, path):
+        self.model.save_pretrained(path)
 
     def get_embedding_dim(self):
         dims = {

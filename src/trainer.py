@@ -1,121 +1,131 @@
 import torch
 import torch.nn.functional as F
 from tqdm import tqdm
-from .utils import get_logger
 
-logger = get_logger(__name__)
-
-def get_hard_triplets(embeddings, labels):
-    dist_matrix = torch.cdist(embeddings, embeddings, p=2.0)
-
+def get_semi_hard_triplets(embeddings, labels, margin, epoch):
+    """
+    Mining strategy: 
+    - Epochs 1-5: Random Positive (Stability)
+    - Epochs > 5: Hardest Positive (Optimization)
+    - All Epochs: Semi-Hard Negative
+    """
     is_pit = (labels == 1)
     is_neg = (labels == 0)
-
     pit_idx = torch.where(is_pit)[0]
-    pit_idx = torch.where(is_neg)[0]
+    neg_idx = torch.where(is_neg)[0]
 
-    anchors = []
-    positives = []
-    negatives = []
+    if len(pit_idx) < 2 or len(neg_idx) < 1:
+        return torch.tensor([]), torch.tensor([]), torch.tensor([])
+
+    dist_matrix = 1.0 - torch.matmul(embeddings, embeddings.T)
+    anchors, positives, negatives = [], [], []
 
     for i in pit_idx:
-        dist_to_pits = dist_matrix[i].clone()
-        dist_to_pits[~is_pit] = -1.0
-        dist_to_pits[i] = -1.0
+        pos_mask = is_pit.clone()
+        pos_mask[i] = False
+        potential_positives = torch.where(pos_mask)[0]
 
-        # Hardest Positive
-        hard_pos_idx = torch.argmax(dist_to_pits)
+        # Toggle strategy based on epoch
+        if epoch <= 5:
+            # Random Positive for a warmer start
+            p_idx = potential_positives[torch.randint(len(potential_positives), (1,))].item()
+        else:
+            # Hardest Positive to squeeze performance
+            p_idx = potential_positives[torch.argmax(dist_matrix[i, pos_mask])]
+        
+        d_ap = dist_matrix[i, p_idx]
 
-        dist_to_negs = dist_matrix[i].clone()
-        dist_to_negs[is_pit] = float("inf")
+        # Semi-Hard Negative Mining
+        d_an = dist_matrix[i, is_neg]
+        mask = (d_an > d_ap) & (d_an < d_ap + margin)
+        semi_hard = neg_idx[mask]
 
-        # Hardest Negative
-        hard_neg_idx = torch.argmin(dist_to_negs)
+        if len(semi_hard) > 0:
+            n_idx = semi_hard[torch.argmin(d_an[mask])]
+        else:
+            n_idx = neg_idx[torch.argmin(d_an)]
 
         anchors.append(embeddings[i])
-        positives.append(embeddings[hard_pos_idx])
-        negatives.append(embeddings[hard_neg_idx])
+        positives.append(embeddings[p_idx])
+        negatives.append(embeddings[n_idx])
 
     return torch.stack(anchors), torch.stack(positives), torch.stack(negatives)
 
-
-def train_one_epoch(model, loader, optimizer, criterion, device):
+def train_one_epoch(model, loader, optimizer, criterion, device, margin, epoch):
     model.train()
-    running_loss = 0.0
-    running_sub_losses = {}
+    total_loss = 0.0
+    sub_totals = {}
 
-    pbar = tqdm(loader, desc="Training", leave=False)
-    for images, labels in pbar:
-        images = images.to(device)
-        labels = labels.to(device)
-
+    for images, labels in tqdm(loader, desc=f"Training Ep {epoch}", leave=False):
+        images, labels = images.to(device), labels.to(device)
         optimizer.zero_grad()
-
-        embeddings = model(images)
-
-        embeddings = F.normalize(embeddings, p=2, dim=1)
-
-        anchors, positives, negatives = get_hard_triplets(embeddings, labels)
-
-        if len(anchors) == 0:
+        
+        embs = F.normalize(model(images), p=2, dim=1)
+        a, p, n = get_semi_hard_triplets(embs, labels, margin, epoch)
+        
+        if len(a) == 0: 
             continue
-        loss, sub_losses = criterion(anchors, positives, negatives)
-
+            
+        loss, subs = criterion(a, p, n)
         loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         optimizer.step()
 
-        running_loss += loss.item()
+        total_loss += loss.item()
+        for k, v in subs.items():
+            sub_totals[k] = sub_totals.get(k, 0.0) + v
 
-        for k, v in sub_losses.items():
-            running_sub_losses[k] = running_sub_losses.get(k, 0.0) + v
+    return total_loss / len(loader), {k: v / len(loader) for k, v in sub_totals.items()}
 
-        pbar.set_postfix({"loss": f"{loss.item():.4f}"})
-
-    avg_loss = running_loss / len(loader)
-    avg_sub_loss = {k: v / len(loader) for k, v in running_sub_losses.items()}
-
-    return avg_loss, avg_sub_loss
-
-
-def validate_epoch(model, loader, criterion, device):
+def validate_epoch(model, loader, criterion, device, margin):
+    """
+    Returns (val_loss, avg_sep, accuracy, sim_pp, sim_pn)
+    """
     model.eval()
-    running_loss = 0.0
-
-    total_separation_margin = 0.0 # D(A,P) - D(A,N)
-    correct_triplets = 0 # How often is D(A,P) < D(A,N)?
-    total_triplets = 0
-
+    all_embs, all_labels = [], []
+    val_loss = 0.0
+    
     with torch.no_grad():
         for images, labels in loader:
-            images = images.to(device)
-            labels = labels.to(device)
+            images, labels = images.to(device), labels.to(device)
+            embs = F.normalize(model(images), p=2, dim=1)
             
-            embeddings = model(images)
-            embeddings = F.normalize(embeddings, p=2, dim=1)
-            
-            anchors, positives, negatives = get_hard_triplets(embeddings, labels)
-            
-            if len(anchors) == 0:
-                continue
-                
-            loss, _ = criterion(anchors, positives, negatives)
-            running_loss += loss.item()
+            is_pit, is_neg = (labels == 1), (labels == 0)
+            p_idx, n_idx = torch.where(is_pit)[0], torch.where(is_neg)[0]
+            if len(p_idx) >= 2 and len(n_idx) >= 1:
+                a, p = embs[p_idx[0:1]], embs[p_idx[1:2]]
+                n = embs[n_idx[0:1]]
+                loss, _ = criterion(a, p, n)
+                val_loss += loss.item()
 
-            # We want this to be smol
-            dist_ap = torch.norm(anchors - positives, p=2, dim=1)
-            # We want this to be big
-            dist_an = torch.norm(anchors - negatives, p=2, dim=1)
+            all_embs.append(embs.cpu())
+            all_labels.append(labels.cpu())
 
-            margin = dist_an - dist_ap
-            total_separation_margin += margin.sum().item()
+    embs = torch.cat(all_embs)
+    labels = torch.cat(all_labels)
+    
+    is_pit = (labels == 1)
+    is_neg = (labels == 0)
+    pit_embs = embs[is_pit]
+    neg_embs = embs[is_neg]
 
-            correct_triplets += (margin > 0).sum().item()
-            total_triplets += len(anchors)
+    if len(pit_embs) < 2 or len(neg_embs) < 1:
+        return 0.0, 0.0, 0.0, 0.0, 0.0
 
-    avg_loss = running_loss / len(loader)
+    # Global Similarities
+    sim_pp = torch.matmul(pit_embs, pit_embs.T).mean().item()
+    sim_pn = torch.matmul(pit_embs, neg_embs.T).mean().item()
+    avg_separation = sim_pp - sim_pn
 
-    avg_separation = total_separation_margin / total_triplets if total_triplets > 0 else 0.0
-    accuracy_triplets = (correct_triplets / total_triplets) * 100 if total_triplets > 0 else 0.0
+    # Hardest-pair Accuracy
+    dist_pp = 1.0 - torch.matmul(pit_embs, pit_embs.T)
+    dist_pn = 1.0 - torch.matmul(pit_embs, neg_embs.T)
+    dist_pp.fill_diagonal_(float('inf'))
+    
+    hardest_pos = dist_pp.min(dim=1)[0]
+    hardest_neg = dist_pn.min(dim=1)[0]
+    
+    correct = (hardest_pos < hardest_neg).sum().item()
+    accuracy = (correct / len(pit_embs)) * 100.0
 
-    return avg_loss, avg_separation, accuracy_triplets
-
+    return val_loss / len(loader), avg_separation, accuracy, sim_pp, sim_pn

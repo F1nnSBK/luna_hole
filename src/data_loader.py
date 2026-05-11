@@ -2,10 +2,10 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
 from pathlib import Path
-from sklearn.model_selection import train_test_split
 from .utils import get_logger
 
 logger = get_logger(__name__)
+
 
 class LunarPitDataset(Dataset):
     def __init__(self, file_paths, labels, transform=None):
@@ -21,14 +21,17 @@ class LunarPitDataset(Dataset):
     
     def __getitem__(self, idx):
         npy_path = self.file_paths[idx]
-        image_array = np.load(npy_path)
+        image_array = np.load(npy_path).astype(np.float32)
 
-        tensor = torch.from_numpy(image_array).float().unsqueeze(0)
-        tensor = tensor.repeat(3, 1, 1)
 
-        if tensor.max() > 1.0:
-            tensor /= 255.0
-
+        f_min, f_max = image_array.min(), image_array.max()
+        if f_max > f_min:
+            image_array = (image_array - f_min) / (f_max - f_min)
+        else:
+            image_array = image_array * 0.0
+            
+        tensor = torch.from_numpy(image_array).unsqueeze(0).repeat(3, 1, 1)
+        
         if self.transform:
             tensor = self.transform(tensor)
 
@@ -51,39 +54,46 @@ class BalancedBatchSampler(torch.utils.data.Sampler):
 
             batch = np.concatenate([p_indices, n_indices])
             np.random.shuffle(batch)
-            yield batch
+            yield batch.tolist()
 
     def __len__(self):
         return self.n_batches
 
-def get_dataloaders(data_dir="data/processed/dataset", batch_size=32, val_split=0.2, transform=None):
+def get_dataloaders(data_dir="data/processed/dataset", batch_size=32, transform=None):
     base_path = Path(data_dir)
 
-    pit_files = list((base_path / "pits").glob("*.npy"))
-    neg_files = list((base_path / "negatives").glob("*.npy"))
+    def load_from_split(split_name):
+        split_path = base_path / split_name
+        p_files = list((split_path / "pits").glob("*.npy"))
+        n_files = list((split_path / "negatives").glob("*.npy"))
+        
+        files = p_files + n_files
+        labels = [1] * len(p_files) + [0] * len(n_files)
+        return files, labels
 
-    all_files = pit_files + neg_files
-    all_labels = [1] * len(pit_files) + [0] * len(neg_files)
-    logger.info(f"Found: {len(pit_files)} Pits and {len(neg_files)} Negatives")
+    train_files, train_labels = load_from_split("train")
+    val_files, val_labels = load_from_split("test")
 
-    train_files, val_files, train_labels, val_labels = train_test_split(
-        all_files, all_labels,
-        test_size=val_split,
-        stratify=all_labels,
-        random_state=67
-    )
-
-    logger.info(f"Split: {len(train_files)} Train-Images, {len(val_files)} Val-Images")
+    logger.info("Loaded from Split-Folders:")
+    logger.info(f"  TRAIN: {len(train_files)} Images")
+    logger.info(f"  VAL:   {len(val_files)} Images")
 
     train_dataset = LunarPitDataset(train_files, train_labels, transform=transform)
     val_dataset = LunarPitDataset(val_files, val_labels, transform=transform)
 
     train_sampler = BalancedBatchSampler(train_dataset, batch_size)
+    
     train_loader = DataLoader(
         train_dataset, 
         batch_sampler=train_sampler, 
-        num_workers=4
+        num_workers=0
     )
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
+    
+    val_loader = DataLoader(
+        val_dataset, 
+        batch_size=batch_size, 
+        shuffle=False, 
+        num_workers=0
+    )
     
     return train_loader, val_loader

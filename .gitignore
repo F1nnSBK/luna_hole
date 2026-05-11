@@ -63,6 +63,7 @@ datasets/
 *.pt
 *.onnx
 *.pth
+models/
 
 # TensorBoard
 runs/
