@@ -4,7 +4,7 @@ from peft import LoraConfig, get_peft_model
 from .utils import get_logger
 
 logger = get_logger(__name__)
-L_RANK = 32
+L_RANK = 64
 
 class DinoExtractor(nn.Module):
     def __init__(self, weights_path="models/meta/dinov3_vits16_pretrain_lvd.pth", model_name="vits16_lvd", model_size="vits16", freeze=True):

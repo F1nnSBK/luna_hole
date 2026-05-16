@@ -35,8 +35,8 @@ def main():
     EPOCHS = 20
     LR = 1e-4
     MARGIN = 1.0
-    MATRYOSHKA_DIMS = [64, 128, 256, 384]
-    LOSS_WEIGHTS = [1.0, 1.0, 0.8, 0.5]
+    MATRYOSHKA_DIMS = [384]
+    LOSS_WEIGHTS = [1.0, 1.0, 1.0, 1.0]
 
     mlflow.set_experiment("Lunar_Pit_LoRA_Training")
     with mlflow.start_run(run_name="Dataset_Initial_Check"):

@@ -83,3 +83,4 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.swp
+*.svg
