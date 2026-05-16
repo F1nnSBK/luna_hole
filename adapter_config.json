@@ -33,10 +33,10 @@
   "rank_pattern": {},
   "revision": null,
   "target_modules": [
-    "proj",
     "qkv",
-    "fc1",
-    "fc2"
+    "proj",
+    "fc2",
+    "fc1"
   ],
   "target_parameters": null,
   "task_type": null,
