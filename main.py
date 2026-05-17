@@ -1,5 +1,8 @@
 import mlflow
+import argparse
 import torch
+import matplotlib.pyplot as plt
+import numpy as np
 from torchvision import transforms
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import SequentialLR, LinearLR, CosineAnnealingLR
@@ -17,17 +20,47 @@ logger = get_logger(__name__)
 
 
 def get_dino_transforms():
+    fill_value = 0.5 
+
     return transforms.Compose([ 
         transforms.Resize((224, 224)),
-        transforms.RandomResizedCrop(224, scale=(0.8, 1.0)),
+        transforms.RandomResizedCrop(224, scale=(0.5, 1.0)), 
         transforms.RandomHorizontalFlip(p=0.5),
         transforms.RandomVerticalFlip(p=0.5),
-        transforms.RandomRotation(degrees=90),
-        transforms.RandomRotation(degrees=180),
+        transforms.RandomRotation(degrees=(0, 360), fill=fill_value),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], 
                              std=[0.229, 0.224, 0.225])
     ])
+def debug_model_input(dataloader, num_samples=4, denormalize=True):
+    images, labels = next(iter(dataloader))
+    images = images.cpu()
+    
+    fig, axes = plt.subplots(2, num_samples, figsize=(4 * num_samples, 8))
+    
+    # Fix: Use .reshape() for numpy arrays
+    mean = np.array([0.485, 0.456, 0.406]).reshape(3, 1, 1)
+    std = np.array([0.229, 0.224, 0.225]).reshape(3, 1, 1)
+    
+    for i in range(num_samples):
+        img = images[i].numpy() # This is a numpy array (3, H, W)
+        
+        if denormalize:
+            # Broadcast operation
+            img = img * std + mean
+            img = np.clip(img, 0, 1)
+            
+        display_img = img[0] 
+        
+        axes[0, i].imshow(display_img, cmap='gray', vmin=0, vmax=1)
+        axes[0, i].set_title(f"Label: {labels[i].item()} (Pit)" if labels[i] == 1 else "Neg")
+        axes[0, i].axis('off')
+        
+        axes[1, i].hist(display_img.flatten(), bins=50, range=(0, 1), color='purple', alpha=0.7)
+        axes[1, i].set_title("Pixel Distribution")
+        axes[1, i].set_xlim(0, 1)
 
+    plt.tight_layout()
+    return fig
 
 
 def main():
@@ -38,8 +71,16 @@ def main():
     MATRYOSHKA_DIMS = [384]
     LOSS_WEIGHTS = [1.0, 1.0, 1.0, 1.0]
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--debug-data", action="store_true", help="Nur Daten visualisieren und dann abbrechen")
+    parser.add_argument("--epochs", type=int, default=20)
+    args = parser.parse_args()
+
+    BATCH_SIZE = 16
+    EPOCHS = args.epochs
+
     mlflow.set_experiment("Lunar_Pit_LoRA_Training")
-    with mlflow.start_run(run_name="Dataset_Initial_Check"):
+    with mlflow.start_run(run_name="Dataset_Check" if args.debug_data else "Production_Run"):
         mlflow.log_params({
             "batch_size": BATCH_SIZE,
             "epochs": EPOCHS,
@@ -58,6 +99,17 @@ def main():
             batch_size=BATCH_SIZE, 
             transform=get_dino_transforms()
         )
+
+        if args.debug_data:
+            logger.info("Running in DEBUG mode. Visualizing input batch...")
+            fig = debug_model_input(dataloader=train_loader, num_samples=4, denormalize=True)
+            
+            mlflow.log_figure(fig, "data_check/input_samples.png")
+            
+            plt.show() 
+            
+            logger.info("Debug finish. Exiting without training.")
+            return
 
         weights = "models/meta/dinov3/dinov3_vits16_pretrain_lvd.pth"
         model = DinoExtractor(weights_path=weights, model_size='vits16').to(device)

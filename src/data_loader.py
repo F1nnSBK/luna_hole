@@ -23,14 +23,20 @@ class LunarPitDataset(Dataset):
         npy_path = self.file_paths[idx]
         image_array = np.load(npy_path).astype(np.float32)
 
+        valid_mask = image_array > -32752
+        valid_data = image_array[valid_mask]
 
-        f_min, f_max = image_array.min(), image_array.max()
-        if f_max > f_min:
-            image_array = (image_array - f_min) / (f_max - f_min)
-        else:
-            image_array = image_array * 0.0
+        if valid_data.size > 0:
+            f_min, f_max = valid_data.min(), valid_data.max()
             
-        tensor = torch.from_numpy(image_array).unsqueeze(0).repeat(3, 1, 1)
+            if f_max > f_min:
+                image_array = np.clip((image_array - f_min) / (f_max - f_min + 1e-6), 0, 1)
+            else:
+                image_array = np.zeros_like(image_array)
+        else:
+            image_array = np.zeros_like(image_array)
+            
+        tensor = torch.from_numpy(image_array).float().unsqueeze(0).repeat(3, 1, 1)
         
         if self.transform:
             tensor = self.transform(tensor)
