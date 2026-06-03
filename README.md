@@ -108,17 +108,17 @@ The fine-tuned model exhibits strong translation equivariance and distinct featu
 ### 1. Lunar Pit Saliency Comparison
 The LoRA fine-tuning refocuses the backbone features directly onto the structural elements of lunar pits.
 
-![Pit Saliency](luna_fig1_pits_lora_r32a32_qkv-proj-fc2-fc1.svg)
+![Pit Saliency](luna_fig1_pits_lora_r32a32_proj-qkv-fc2-fc1.svg)
 
 ### 2. Control (Non-Pit) Saliency Comparison
 For non-pit control regions, the saliency maps show negligible drift and focus on background patterns.
 
-![Non-Pit Saliency](luna_fig2_nonpits_lora_r32a32_qkv-proj-fc2-fc1.svg)
+![Non-Pit Saliency](luna_fig2_nonpits_lora_r32a32_proj-qkv-fc2-fc1.svg)
 
 ### 3. Translation Equivariance Shift Test
 To ensure stability, the model was tested under a diagonal pixel shift (+$50\text{px}$). The observed activation peak shift matches the expected shift of $\approx 70.7\text{px}$ with minimal error.
 
-![Equivariance Qual](luna_fig_equivariance_qual_lora_r32a32_qkv-proj-fc2-fc1.svg)
+![Equivariance Qual](luna_fig_equivariance_qual_lora_r32a32_proj-qkv-fc2-fc1.svg)
 
 ---
 
