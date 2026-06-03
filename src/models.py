@@ -40,6 +40,21 @@ class DinoExtractor(nn.Module):
 
     def save_adapter(self, path):
         self.model.save_pretrained(path)
+        
+        # Post-process adapter_config.json to set base_model_name_or_path and task_type as strings
+        # to avoid warnings during Hugging Face Hub uploads.
+        import json
+        import os
+        config_path = os.path.join(path, "adapter_config.json")
+        if os.path.exists(config_path):
+            with open(config_path, "r", encoding="utf-8") as f:
+                config = json.load(f)
+            
+            config["base_model_name_or_path"] = "facebookresearch/dinov3"
+            config["task_type"] = "FEATURE_EXTRACTION"
+            
+            with open(config_path, "w", encoding="utf-8") as f:
+                json.dump(config, f, indent=2, ensure_ascii=False)
 
     def get_embedding_dim(self):
         dims = {
