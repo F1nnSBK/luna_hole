@@ -27,13 +27,13 @@ MODELS: list[ModelConfig] = [
     ModelConfig(
         label        = "Standard LoRA",
         weights      = "models/meta/dinov3/dinov3_vits16_pretrain_lvd.pth",
-        adapter_path = "models/best_lora_pit_model/best_lora_pit_model_qkv_proj_fc1_fc2",
+        adapter_path = "models/lunar_dinov3_lora/standard_lora",
         adapter_name = "standard_lora",
     ),
     ModelConfig(
         label        = "Matryoshka LoRA",
         weights      = "models/meta/dinov3/dinov3_vits16_pretrain_lvd.pth",
-        adapter_path = "models/best_lora_pit_model/best_mat_lora_pit_model_qkv_proj_fc1_fc2",
+        adapter_path = "models/lunar_dinov3_lora/matryoshka_lora",
         adapter_name = "matryoshka_lora",
     ),
 ]

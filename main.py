@@ -156,9 +156,9 @@ def main():
             if val_sep > best_sep:
                 best_sep = val_sep
                 logger.info("--> New Best Separation! Saving Adapter...")
-                model.save_adapter("models/best_lora_pit_model")
+                model.save_adapter("models/lunar_dinov3_lora/standard_lora")
                 
-                mlflow.log_artifacts("models/best_lora_pit_model", artifact_path="lora_weights")
+                mlflow.log_artifacts("models/lunar_dinov3_lora/standard_lora", artifact_path="lora_weights")
 
         logger.info("Training Finished!")
 
