@@ -72,7 +72,7 @@ def main():
     LOSS_WEIGHTS = [1.0, 1.0, 1.0, 1.0]
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--debug-data", action="store_true", help="Nur Daten visualisieren und dann abbrechen")
+    parser.add_argument("--debug-data", action="store_true", help="Only visualize data and then exit")
     parser.add_argument("--epochs", type=int, default=20)
     args = parser.parse_args()
 
@@ -92,7 +92,7 @@ def main():
         })
 
         device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
-        logger.info(f"Starte Training auf Device: {device}")
+        logger.info(f"Starting training on device: {device}")
 
         train_loader, val_loader = get_dataloaders(
             data_dir="data/processed/dataset", 
@@ -126,7 +126,7 @@ def main():
 
         scheduler = SequentialLR(optimizer, schedulers=[scheduler_warmup, scheduler_cosine], milestones=[warmup_epochs])
 
-        logger.info("Starte Trainings-Loop...")
+        logger.info("Starting training loop...")
         best_sep = -1.0
 
         for epoch in range(1, EPOCHS + 1):

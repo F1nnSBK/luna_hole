@@ -312,7 +312,7 @@ def plot_quantitative(results: list[ShiftResult], output_path: str) -> None:
 # ---------------------------------------------------------------------------
 
 def run_acid_test() -> None:
-    device       = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+    device       = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
     weights      = "models/meta/dinov3/dinov3_vits16_pretrain_lvd.pth"
     adapter_path = "models/best_lora_pit_model/best_lora_pit_model_qkv_proj_fc1_fc2"
 

@@ -27,7 +27,7 @@ MODELS: list[ModelConfig] = [
     ModelConfig(
         label        = "Standard LoRA",
         weights      = "models/meta/dinov3/dinov3_vits16_pretrain_lvd.pth",
-        adapter_path = "models/best_lora_pit_model",
+        adapter_path = "models/best_lora_pit_model/best_lora_pit_model_qkv_proj_fc1_fc2",
         adapter_name = "standard_lora",
     ),
     ModelConfig(
@@ -343,7 +343,7 @@ def plot_comparison(
 # ---------------------------------------------------------------------------
 
 def run_comparison() -> None:
-    device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
 
     print("Loading models ...")
     models = {cfg.label: load_model(cfg, device) for cfg in MODELS}

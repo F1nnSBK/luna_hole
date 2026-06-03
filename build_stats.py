@@ -4,10 +4,10 @@ from pathlib import Path
 
 def build_luna_stats(data_dir="data/processed/dataset"):
     stats = {}
-    # Wir suchen alle .npy Dateien in train und test
+    # We search for all .npy files in train and test
     files = list(Path(data_dir).glob("**/*.npy"))
     
-    # NAC-ID extrahieren (der Teil nach dem letzten Unterstrich)
+    # Extract NAC-ID (the part after the last underscore)
     for p in files:
         nac_id = p.stem.split('_')[-1]
         if nac_id not in stats:
