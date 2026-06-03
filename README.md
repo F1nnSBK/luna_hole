@@ -8,6 +8,8 @@ tags:
 - computer-vision
 - image-feature-extraction
 base_model: facebookresearch/dinov3
+datasets:
+- F1nnSBK/lunar-pits-dataset
 license: apache-2.0
 pipeline_tag: image-feature-extraction
 ---
@@ -86,7 +88,7 @@ print("Embedding shape:", embeddings.shape)  # Should output: [1, 384]
 ## Training Details
 
 ### Training Data
-The model was trained on a dataset of curated Narrow Angle Camera (NAC) tiles, containing:
+The dataset used for training is available on Hugging Face at [F1nnSBK/lunar-pits-dataset](https://huggingface.co/datasets/F1nnSBK/lunar-pits-dataset). It consists of curated Narrow Angle Camera (NAC) tiles containing:
 - **Pits**: Volcanic pit crater coordinates.
 - **Negatives**: Control volcanic regions, shallow craters, and shadow features.
 - Data splits are partitioned dynamically using a **Group-Split based on NAC strip IDs** to prevent any data leakage between training and validation groups.
@@ -132,6 +134,10 @@ pip install -r requirements.txt
 ```
 
 ### Run Scripts
+- **Upload Dataset**: Uploads the processed dataset folder (`data/processed/dataset`) to your Hugging Face Datasets repository:
+  ```bash
+  python upload_dataset.py
+  ```
 - **Dataset Generation**: Splits raw PNG/NPY files under `data/processed/dataset/` into `train` and `test` subfolders:
   ```bash
   python create_dataset.py
