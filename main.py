@@ -158,7 +158,13 @@ def main():
                 logger.info("--> New Best Separation! Saving Adapter...")
                 model.save_adapter("models/lunar_dinov3_lora/standard_lora")
                 
-                mlflow.log_artifacts("models/lunar_dinov3_lora/standard_lora", artifact_path="lora_weights")
+                # Log only files, ignoring the .git directory to avoid permission errors
+                import os
+                adapter_dir = "models/lunar_dinov3_lora/standard_lora"
+                for f in os.listdir(adapter_dir):
+                    f_path = os.path.join(adapter_dir, f)
+                    if os.path.isfile(f_path):
+                        mlflow.log_artifact(f_path, artifact_path="lora_weights")
 
         logger.info("Training Finished!")
 

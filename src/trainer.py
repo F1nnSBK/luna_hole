@@ -83,26 +83,27 @@ def validate_epoch(model, loader, criterion, device, margin):
     """
     model.eval()
     all_embs, all_labels = [], []
-    val_loss = 0.0
     
     with torch.no_grad():
         for images, labels in loader:
             images, labels = images.to(device), labels.to(device)
             embs = F.normalize(model(images), p=2, dim=1)
-            
-            is_pit, is_neg = (labels == 1), (labels == 0)
-            p_idx, n_idx = torch.where(is_pit)[0], torch.where(is_neg)[0]
-            if len(p_idx) >= 2 and len(n_idx) >= 1:
-                a, p = embs[p_idx[0:1]], embs[p_idx[1:2]]
-                n = embs[n_idx[0:1]]
-                loss, _ = criterion(a, p, n)
-                val_loss += loss.item()
-
             all_embs.append(embs.cpu())
             all_labels.append(labels.cpu())
 
     embs = torch.cat(all_embs)
     labels = torch.cat(all_labels)
+
+    embs_dev = embs.to(device)
+    labels_dev = labels.to(device)
+    
+    val_a, val_p, val_n = get_semi_hard_triplets(embs_dev, labels_dev, margin, epoch=6)
+    
+    if len(val_a) > 0:
+        val_loss_tensor, _ = criterion(val_a, val_p, val_n)
+        val_loss = val_loss_tensor.item()
+    else:
+        val_loss = 0.0
     
     is_pit = (labels == 1)
     is_neg = (labels == 0)
