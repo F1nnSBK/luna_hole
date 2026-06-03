@@ -14,7 +14,7 @@ pipeline_tag: image-feature-extraction
 
 # Lunar DINOv3 LoRA (F1nnSBK/lunar-dinov3-lora)
 
-This model card describes the LoRA adapter fine-tuned on top of the **DINOv3 (ViT-S/16)** vision backbone. The model maps lunar surface terrain tiles (represented as normalized Narrow Angle Camera (NAC) heights/pixels) to a metric embedding space optimized for distinguishing lunar pits from surrounding volcanic plains and negative control features.
+This model card describes the LoRA adapter fine-tuned on top of the **DINOv3 (ViT-S/16)** vision backbone under **Project HOLE** (**H**ole-**O**riented **L**oRA **E**mbedder). The model maps lunar surface terrain tiles (represented as normalized Narrow Angle Camera (NAC) heights/pixels) to a metric embedding space optimized for distinguishing lunar pits from surrounding volcanic plains and negative control features.
 
 ## Model Details
 
