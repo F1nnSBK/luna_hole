@@ -18,7 +18,13 @@ pipeline_tag: image-feature-extraction
 
 This model card describes the LoRA adapter fine-tuned on top of the **DINOv3 (ViT-S/16)** vision backbone under **Project HOLE** (**H**ole-**O**riented **L**oRA **E**mbedder). The model maps lunar surface terrain tiles (represented as normalized Narrow Angle Camera (NAC) heights/pixels) to a metric embedding space optimized for distinguishing lunar pits from surrounding volcanic plains and negative control features.
 
-## Model Details
+## Model Details & Architecture
+
+The HOLE model architecture fine-tunes a pretrained DINOv3 backbone via low-rank adaptation (LoRA). Instead of a standard linear classifier, it replaces the DINOv3 head with a **Matryoshka Projection Head**. This architectural decision is inspired by the **DIVE** (Dimensionality reduction with Implicit View Ensembles) framework by **Dongfang Zhao** (2026). DIVE allows us to train hierarchical, implicitly ensemble-like representations that don't suffer from overfitting on limited data.
+
+By utilizing the `MatryoshkaDIVELoss`, which combines a self-limiting triplet loss on the primary head (384d) and a head-wise NT-Xent contrastive loss on the sub-dimensions (64d, 128d, 256d), the model builds a highly robust feature space.
+
+![HOLE Model Architecture](figures/hole_architecture-1.png)
 
 - **Developed by:** F1nnSBK
 - **Model type:** PEFT (LoRA) Adapter for DINOv3 Vision Transformer
@@ -101,24 +107,35 @@ The dataset used for training is available on Hugging Face at [F1nnSBK/lunar-pit
 
 ---
 
-## Evaluation & Saliency Maps
+## Evaluation & Metrics
 
-The fine-tuned model exhibits strong translation equivariance and distinct feature localization compared to the zero-shot DINOv3 baseline.
+The fine-tuned model (Epoch 12) exhibits exceptional performance on the validation set, achieving perfect separation on the full embedding dimension and maintaining strong performance even when truncated to smaller dimensions (Graceful Degradation).
 
-### 1. Lunar Pit Saliency Comparison
-The LoRA fine-tuning refocuses the backbone features directly onto the structural elements of lunar pits.
+### Matryoshka Embedding Metrics (Validation Set)
 
-![Pit Saliency](luna_fig1_pits_lora_r32a32_proj-qkv-fc2-fc1.svg)
+| Dim | Train Acc | Val Acc | Train AUC | Val AUC | Train Sep | Val Sep |
+|-----|-----------|---------|-----------|---------|-----------|---------|
+| **64**  | 99.7% | 78.6%  | 0.8315 | 0.8271 | 0.1366 | 0.1265 |
+| **128** | 99.8% | 85.7%  | 0.8573 | 0.8724 | 0.1403 | 0.1428 |
+| **256** | 99.9% | 85.7%  | 0.9070 | 0.8950 | 0.1389 | 0.1570 |
+| **384** | 99.9% | **100.0%** | **0.9985** | **0.9985** | **1.3254** | **1.2592** |
 
-### 2. Control (Non-Pit) Saliency Comparison
-For non-pit control regions, the saliency maps show negligible drift and focus on background patterns.
+## Visual Evaluation
 
-![Non-Pit Saliency](luna_fig2_nonpits_lora_r32a32_proj-qkv-fc2-fc1.svg)
+The fine-tuned model exhibits distinct feature localization and a robust clustering capability in the embedding space.
 
-### 3. Translation Equivariance Shift Test
-To ensure stability, the model was tested under a diagonal pixel shift (+$50\text{px}$). The observed activation peak shift matches the expected shift of $\approx 70.7\text{px}$ with minimal error.
+### 1. t-SNE Embedding Projection
+Dimensionality reduction of the 384d validation embeddings shows a clear separation between lunar pits and negative control regions.
+![Validation UMAP/t-SNE](figures/validation_umap.png)
 
-![Equivariance Qual](luna_fig_equivariance_qual_lora_r32a32_proj-qkv-fc2-fc1.svg)
+### 2. Saliency & Attention Maps
+The DINOv3 backbone focus is mapped directly to the structural elements (rims, shadows) of the lunar pits.
+![Saliency & Attention](figures/saliency_attention.png)
+
+### 3. Matryoshka Representation Analysis
+The DIVE training guarantees a graceful decay in performance even when truncating the embeddings. The Bias-Variance tradeoff demonstrates stable learning across dimensionalities.
+![Matryoshka Decay](figures/matryoshka_decay.png)
+![Bias-Variance](figures/bias_variance.png)
 
 ---
 

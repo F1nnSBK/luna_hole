@@ -237,8 +237,8 @@ class HeadwiseNTXentLoss(nn.Module):
         sim = torch.matmul(z, z.T) / self.temperature
 
         # Mask out self-similarities
-        mask = torch.eye(2 * B, device=z.device, dtype=torch.bool)
-        sim.masked_fill_(mask, float("-inf"))
+        mask = torch.eye(2 * B, device=z.device, dtype=z.dtype)
+        sim = sim - mask * 1e9
 
         # Positive pairs: (i, i+B) and (i+B, i)
         labels = torch.cat([
