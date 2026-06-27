@@ -83,7 +83,15 @@ class DinoExtractor(nn.Module):
                 f"dinov3_{model_size}",
                 pretrained=False,
             )
-            state_dict = torch.load(weights_path, map_location="cpu", weights_only=True)
+            if weights_path.endswith(".safetensors"):
+                try:
+                    from safetensors.torch import load_file
+                    state_dict = load_file(weights_path, device="cpu")
+                except ImportError:
+                    logger.error("Please install 'safetensors' to load .safetensors files.")
+                    raise
+            else:
+                state_dict = torch.load(weights_path, map_location="cpu", weights_only=True)
             if "model" in state_dict:
                 state_dict = state_dict["model"]
             backbone.load_state_dict(state_dict, strict=True)
